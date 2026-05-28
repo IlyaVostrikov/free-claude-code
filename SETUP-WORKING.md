@@ -1,10 +1,20 @@
 # SETUP-WORKING — Claude Code + DeepSeek V4 (рабочая конфигурация)
 
 Дата фиксации: 2026-05-29
-Claude Code: 2.1.154
-DeepSeek: deepseek-v4-pro (через DeepSeek API)
+Claude Code: 2.1.153 (заблокирована от автообновления)
+DeepSeek: deepseek-v4-pro (через прокси free-claude-code)
+Режимы: `ds` (DeepSeek через прокси, дёшево) + `cc` (Claude Anthropic напрямую)
 
-## Схема подключения
+## Два режима работы
+
+У нас настроено два режима — переключаемся в зависимости от задачи:
+
+| Команда | Модель | Маршрут | Когда использовать |
+|---------|--------|---------|-------------------|
+| **ds** | DeepSeek V4 Pro | Claude Code → прокси → api.deepseek.com | Ежедневная работа, дёшево |
+| **cc** | Claude Opus/Sonnet | Claude Code → api.anthropic.com | Сложные рефакторы, OAuth, архитектура БД |
+
+### Режим ds — DeepSeek через прокси
 
 ```
 ┌──────────────┐     Anthropic API      ┌────────────────────┐     Anthropic API      ┌───────────────────┐
@@ -15,7 +25,6 @@ DeepSeek: deepseek-v4-pro (через DeepSeek API)
                                                   │
                                                   │ Провайдер: deepseek
                                                   │ Модель: deepseek-v4-pro
-                                                  │ Аутентификация: ANTHROPIC_AUTH_TOKEN
                                                   │
                                           ┌───────┴────────┐
                                           │    .env файл    │
@@ -26,7 +35,17 @@ DeepSeek: deepseek-v4-pro (через DeepSeek API)
                                           └────────────────┘
 ```
 
-**Как это работает:**
+### Режим cc — Claude Anthropic напрямую
+
+```
+┌──────────────┐     Anthropic API      ┌───────────────────┐
+│  Claude Code │ ──────────────────────→ │  api.anthropic.com │
+│  (настоящий  │ ←────────────────────── │  (напрямую)        │
+│   Anthropic) │     SSE стриминг        │                    │
+└──────────────┘                        └───────────────────┘
+```
+
+**Как работает прокси (ds):**
 - Claude Code думает что общается с Anthropic API
 - Прокси перехватывает запросы, конвертирует их в формат DeepSeek
 - Ответы от DeepSeek конвертируются обратно в Anthropic-формат (SSE стриминг)
@@ -100,7 +119,7 @@ MODEL=deepseek/deepseek-v4-pro
 
 ## Команды запуска
 
-### Запуск прокси (терминал 1)
+### Запуск прокси DeepSeek (терминал 1)
 
 ```powershell
 cd "D:\AI BASE\DEEPSEEK"
@@ -113,9 +132,7 @@ Server URL: http://127.0.0.1:8082
 Admin UI:  http://127.0.0.1:8082/admin
 ```
 
-### Запуск Claude Code (терминал 2)
-
-Перед запуском Claude Code нужно очистить `model` из settings.json, чтобы он использовал прокси, а не прямой Anthropic API:
+### Режим ds — DeepSeek V4 Pro через прокси (терминал 2)
 
 ```powershell
 # 1. Очистить env/model в settings.json (скрипт делает бекап автоматически)
@@ -131,7 +148,16 @@ claude
 python C:\Users\Илья\.claude\cc-end.py
 ```
 
-### Скрипты cc-start / cc-end
+### Режим cc — настоящий Claude Anthropic (терминал 2)
+
+```powershell
+# Напрямую к Anthropic API — без прокси
+$env:ANTHROPIC_BASE_URL = "https://api.anthropic.com"
+$env:ANTHROPIC_AUTH_TOKEN = "sk-ant-your-real-anthropic-key"
+claude
+```
+
+### Скрипты cc-start / cc-end (для режима ds)
 
 **`cc-start.py`** — бекапит `settings.json` → `settings.backup.json`, очищает `env` и удаляет `model`:
 
@@ -159,18 +185,14 @@ print('settings restored')
 
 ## Псевдонимы (алиасы) для удобства
 
-Можно добавить в `~/.bashrc` или PowerShell профиль:
+Добавить в PowerShell профиль (`notepad $PROFILE`):
 
-**Bash (~/.bashrc):**
-```bash
-alias ds-server='cd "D:/AI BASE/DEEPSEEK" && uv run uvicorn server:app --host 127.0.0.1 --port 8082'
-alias cc='python "$USERPROFILE/.claude/cc-start.py" && ANTHROPIC_BASE_URL="http://127.0.0.1:8082" ANTHROPIC_AUTH_TOKEN="freecc" CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1 claude ; python "$USERPROFILE/.claude/cc-end.py"'
-```
-
-**PowerShell (профиль):**
 ```powershell
+# ds-сервер — запуск прокси (отдельное окно)
 function ds-server { cd "D:\AI BASE\DEEPSEEK"; uv run uvicorn server:app --host 127.0.0.1 --port 8082 }
-function cc {
+
+# ds — Claude Code через DeepSeek прокси (дешёвый, ежедневный)
+function ds {
     python "$env:USERPROFILE\.claude\cc-start.py"
     $env:ANTHROPIC_BASE_URL = "http://127.0.0.1:8082"
     $env:ANTHROPIC_AUTH_TOKEN = "freecc"
@@ -178,17 +200,43 @@ function cc {
     claude
     python "$env:USERPROFILE\.claude\cc-end.py"
 }
+
+# cc — Claude Code напрямую к Anthropic (для сложных задач)
+function cc {
+    $env:ANTHROPIC_BASE_URL = "https://api.anthropic.com"
+    $env:ANTHROPIC_AUTH_TOKEN = "sk-ant-your-real-anthropic-key"
+    claude
+}
 ```
 
-## Что сломано в Claude Code 2.1.154
+## Что сломано в Claude Code 2.1.153+
 
 | Проблема | Симптом | Решение |
 |----------|---------|---------|
-| **`model` в settings.json конфликтует с прокси** | Claude Code пытается использовать прямой Anthropic API вместо прокси, модель не находится | `cc-start.py` удаляет `model` из settings.json перед запуском |
+| **`model` в settings.json конфликтует с прокси** | Claude Code пытается использовать прямой Anthropic API вместо прокси, модель не находится | `cc-start.py` удаляет `model` из settings.json перед запуском в режиме `ds` |
 | **Gateway model discovery требует модель в списке** | `/model` показывает пустой список или "модель не найдена" | `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1` + модель в ответе `/v1/models` прокси |
-| **`autoUpdate` ломает совместимость** | После автообновления Claude Code может изменить формат запросов — прокси их не понимает | `"autoUpdate": false` в settings.json |
+| **`autoUpdate` ломает совместимость** | После автообновления Claude Code может изменить формат запросов — прокси их не понимает | Заблокировать npm-пакет через `icacls` (см. ниже) |
 | **Токен авторизации не пробрасывается** | Claude Code шлёт запросы без авторизации | `ANTHROPIC_AUTH_TOKEN="freecc"` должен совпадать с токеном в `.env` прокси |
-| **Admin UI перезаписывает модель** | При изменении настроек в Admin UI модель перезаписывается | Не менять модель через Admin UI, править `.env` напрямую |
+
+### Блокировка версии Claude Code (icacls)
+
+`autoUpdate: false` в settings.json — ненадёжно. Правильный способ: отобрать права на запись у npm-пакета:
+
+```powershell
+# Заблокировать обновление (отобрать права на запись)
+$pkg = "C:\Users\Илья\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code"
+icacls $pkg /deny "Илья":W /T
+
+# Проверить что блокировка активна
+icacls $pkg
+
+# Снять блокировку (когда нужно обновиться)
+icacls $pkg /remove:d "Илья" /T
+npm install -g @anthropic-ai/claude-code@latest
+claude --version
+# Если всё работает — заблокировать снова
+icacls $pkg /deny "Илья":W /T
+```
 
 ## Как обновляться когда выйдет фикс
 
@@ -207,18 +255,20 @@ uv sync                                 # обновить зависимост�
 Когда выйдет версия с фиксом проблем совместимости:
 
 ```powershell
-# 1. Временно включить автообновление
-# В settings.json поставить "autoUpdate": true
+# 1. Снять блокировку icacls
+$pkg = "C:\Users\Илья\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code"
+icacls $pkg /remove:d "Илья" /T
 
-# 2. Или обновить вручную
-npm update -g @anthropic-ai/claude-code
+# 2. Обновить Claude Code
+npm install -g @anthropic-ai/claude-code@latest
 
 # 3. Проверить версию
 claude --version
 
-# 4. Протестировать с прокси
-# Запустить ds-server, потом cc
-# Если всё работает — отключить автообновление обратно
+# 4. Протестировать в режиме ds
+# Запустить прокси (ds-server), потом ds
+# Если всё работает — заблокировать снова
+icacls $pkg /deny "Илья":W /T
 ```
 
 ### Признаки что пора обновляться:
@@ -281,12 +331,13 @@ copy "C:\Users\Илья\.claude\settings.backup.json" "C:\Users\Илья\.claude
 
 # 5. Проверить версию Claude Code
 claude --version
-# Если не 2.1.154 — установить конкретную версию:
-# npm install -g @anthropic-ai/claude-code@2.1.154
+# Если не 2.1.153 — установить конкретную версию и заблокировать:
+# npm install -g @anthropic-ai/claude-code@2.1.153
+# icacls "C:\Users\Илья\AppData\Roaming\npm\node_modules\@anthropic-ai\claude-code" /deny "Илья":W /T
 
 # 6. Запустить и проверить
 ds-server    # терминал 1
-cc           # терминал 2
+ds           # терминал 2
 ```
 
 ### Уровень 5: новый API ключ DeepSeek
