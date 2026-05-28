@@ -14,3 +14,10 @@ debug-*.log
 .coverage
 llama_cache
 .smoke-results
+
+fix*.py
+make-clean-settings.py
+mask-keys.py
+restore-plugins.py
+body.json
+*.txt
