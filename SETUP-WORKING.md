@@ -1,7 +1,7 @@
 # SETUP-WORKING — Claude Code + DeepSeek V4 (рабочая конфигурация)
 
 Дата фиксации: 2026-05-29
-Claude Code: 2.1.153 (заблокирована от автообновления)
+Claude Code: 2.1.153 (строго! 2.1.154 ломает прокси)
 DeepSeek: deepseek-v4-pro (через прокси free-claude-code)
 Режимы: `ds` (DeepSeek через прокси, дёшево) + `cc` (Claude Anthropic напрямую)
 
@@ -209,7 +209,18 @@ function cc {
 }
 ```
 
-## Что сломано в Claude Code 2.1.153+
+## Что сломано и версии
+
+### 2.1.154 — ПРОКСИ НЕ РАБОТАЕТ (май 2026)
+
+Claude Code 2.1.154 игнорирует `ANTHROPIC_BASE_URL` и ломится напрямую в `api.anthropic.com`. Симптомы:
+- Вместо DeepSeek показывает "Opus 4.8 · API Usage Billing"
+- На любой ввод отвечает "Not logged in · Please run /login"
+- `ANTHROPIC_AUTH_TOKEN` и `ANTHROPIC_BASE_URL` выставлены правильно, но Claude Code их не читает
+
+**Решение:** откатиться на 2.1.153 и заблокировать (см. ниже).
+
+### Что сломано в 2.1.153+ (базовые проблемы)
 
 | Проблема | Симптом | Решение |
 |----------|---------|---------|
