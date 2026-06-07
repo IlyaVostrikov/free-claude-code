@@ -12,6 +12,7 @@ from providers.llamacpp import LlamaCppProvider
 from providers.lmstudio import LMStudioProvider
 from providers.nvidia_nim import NvidiaNimProvider
 from providers.ollama import OllamaProvider
+from providers.gemini import GeminiProvider
 from providers.open_router import OpenRouterProvider
 from providers.opencode import OpenCodeProvider
 from providers.registry import (
@@ -33,6 +34,7 @@ def _make_settings(**overrides):
     mock.wafer_api_key = "test_wafer_key"
     mock.opencode_api_key = "test_opencode_key"
     mock.zai_api_key = "test_zai_key"
+    mock.gemini_api_key = "test_gemini_key"
     mock.lm_studio_base_url = "http://localhost:1234/v1"
     mock.llamacpp_base_url = "http://localhost:8080/v1"
     mock.ollama_base_url = "http://localhost:11434"
@@ -44,6 +46,7 @@ def _make_settings(**overrides):
     mock.wafer_proxy = ""
     mock.opencode_proxy = ""
     mock.zai_proxy = ""
+    mock.gemini_proxy = ""
     mock.provider_rate_limit = 40
     mock.provider_rate_window = 60
     mock.provider_max_concurrency = 5
@@ -107,6 +110,7 @@ def test_create_provider_instantiates_each_builtin():
         "wafer": WaferProvider,
         "opencode": OpenCodeProvider,
         "zai": ZaiProvider,
+        "gemini": GeminiProvider,
     }
 
     with (

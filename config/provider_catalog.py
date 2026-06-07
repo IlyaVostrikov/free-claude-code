@@ -25,6 +25,7 @@ LLAMACPP_DEFAULT_BASE = "http://localhost:8080/v1"
 OLLAMA_DEFAULT_BASE = "http://localhost:11434"
 OPENCODE_DEFAULT_BASE = "https://opencode.ai/zen/v1"
 ZAI_DEFAULT_BASE = "https://api.z.ai/api/coding/paas/v4"
+GEMINI_DEFAULT_BASE = "https://generativelanguage.googleapis.com/v1beta/openai"
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,6 +146,16 @@ PROVIDER_CATALOG: dict[str, ProviderDescriptor] = {
         base_url_attr="zai_base_url",
         proxy_attr="zai_proxy",
         capabilities=("chat", "streaming", "tools", "thinking", "rate_limit"),
+    ),
+    "gemini": ProviderDescriptor(
+        provider_id="gemini",
+        transport_type="openai_chat",
+        credential_env="GEMINI_API_KEY",
+        credential_url="https://aistudio.google.com/apikey",
+        credential_attr="gemini_api_key",
+        default_base_url=GEMINI_DEFAULT_BASE,
+        proxy_attr="gemini_proxy",
+        capabilities=("chat", "streaming", "tools", "thinking"),
     ),
 }
 

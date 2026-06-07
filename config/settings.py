@@ -129,6 +129,9 @@ class Settings(BaseSettings):
         validation_alias="ZAI_BASE_URL",
     )
 
+    # ==================== Gemini Config ====================
+    gemini_api_key: str = Field(default="", validation_alias="GEMINI_API_KEY")
+
     # ==================== Messaging Platform Selection ====================
     # Valid: "telegram" | "discord" | "none"
     messaging_platform: str = Field(
@@ -139,6 +142,15 @@ class Settings(BaseSettings):
     )
     messaging_rate_window: float = Field(
         default=1.0, validation_alias="MESSAGING_RATE_WINDOW"
+    )
+
+    # ==================== Image Generation (Nano Banana 2 / fal.ai) ====================
+    image_gen_provider: str = Field(
+        default="fal", validation_alias="IMAGE_GEN_PROVIDER"
+    )
+    fal_key: str = Field(default="", validation_alias="FAL_KEY")
+    image_gen_google_api_key: str = Field(
+        default="", validation_alias="IMAGE_GEN_GOOGLE_API_KEY"
     )
 
     # ==================== NVIDIA NIM Config ====================
@@ -182,6 +194,7 @@ class Settings(BaseSettings):
     wafer_proxy: str = Field(default="", validation_alias="WAFER_PROXY")
     opencode_proxy: str = Field(default="", validation_alias="OPENCODE_PROXY")
     zai_proxy: str = Field(default="", validation_alias="ZAI_PROXY")
+    gemini_proxy: str = Field(default="", validation_alias="GEMINI_PROXY")
 
     # ==================== Provider Rate Limiting ====================
     provider_rate_limit: int = Field(default=40, validation_alias="PROVIDER_RATE_LIMIT")
@@ -367,6 +380,15 @@ class Settings(BaseSettings):
             )
         return v
 
+    @field_validator("image_gen_provider")
+    @classmethod
+    def validate_image_gen_provider(cls, v: str) -> str:
+        if v not in ("fal", "google"):
+            raise ValueError(
+                f"IMAGE_GEN_PROVIDER must be 'fal' or 'google', got {v!r}"
+            )
+        return v
+
     @field_validator("messaging_platform")
     @classmethod
     def validate_messaging_platform(cls, v: str) -> str:
@@ -441,6 +463,13 @@ class Settings(BaseSettings):
                 "NVIDIA_NIM_API_KEY is required when WHISPER_DEVICE is 'nvidia_nim'. "
                 "Set it in your .env file."
             )
+        return self
+
+    @model_validator(mode="after")
+    def apply_gemini_api_key_fallback(self) -> Settings:
+        """Fall back to IMAGE_GEN_GOOGLE_API_KEY when GEMINI_API_KEY is not set."""
+        if not self.gemini_api_key.strip() and self.image_gen_google_api_key.strip():
+            self.gemini_api_key = self.image_gen_google_api_key
         return self
 
     @model_validator(mode="after")

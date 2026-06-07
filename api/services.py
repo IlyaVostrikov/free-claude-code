@@ -17,6 +17,8 @@ from core.anthropic.sse import ANTHROPIC_SSE_RESPONSE_HEADERS
 from core.trace import api_messages_request_snapshot, trace_event, traced_async_stream
 from providers.base import BaseProvider
 from providers.exceptions import InvalidRequestError, ProviderError
+from providers.image_gen.base import ImageGenRequest, ImageGenResponse
+from providers.image_gen.factory import create_image_gen_provider
 
 from .model_router import ModelRouter
 from .models.anthropic import MessagesRequest, TokenCountRequest
@@ -254,6 +256,53 @@ class ClaudeProxyService:
                     self._settings,
                     e,
                     context="COUNT_TOKENS_ERROR",
+                    request_id=request_id,
+                )
+                raise HTTPException(
+                    status_code=_http_status_for_unexpected_service_exception(e),
+                    detail=get_user_facing_error_message(e),
+                ) from e
+
+    async def generate_image(
+        self,
+        request_data: ImageGenRequest,
+    ) -> ImageGenResponse:
+        """Generate images via the configured image gen provider."""
+        request_id = f"req_{uuid.uuid4().hex[:12]}"
+        with logger.contextualize(request_id=request_id):
+            try:
+                if not request_data.prompt.strip():
+                    raise InvalidRequestError("prompt cannot be empty")
+
+                provider = create_image_gen_provider(self._settings)
+
+                trace_event(
+                    stage="ingress",
+                    event="api.image_gen.request",
+                    source="api",
+                    provider=self._settings.image_gen_provider,
+                    prompt_len=len(request_data.prompt),
+                    n=request_data.n,
+                    size=request_data.size,
+                )
+
+                response = await provider.generate(request_data)
+
+                trace_event(
+                    stage="egress",
+                    event="api.image_gen.completed",
+                    source="api",
+                    image_count=len(response.data),
+                )
+                return response
+
+            except ProviderError:
+                raise
+            except Exception as e:
+                _log_unexpected_service_exception(
+                    self._settings,
+                    e,
+                    context="GENERATE_IMAGE_ERROR",
                     request_id=request_id,
                 )
                 raise HTTPException(

@@ -14,6 +14,7 @@ from .gateway_model_ids import gateway_model_id, no_thinking_gateway_model_id
 from .models.anthropic import MessagesRequest, TokenCountRequest
 from .models.responses import ModelResponse, ModelsListResponse
 from .services import ClaudeProxyService
+from providers.image_gen.base import ImageGenRequest, ImageGenResponse
 
 router = APIRouter()
 
@@ -158,6 +159,25 @@ def _build_models_list_response(
         has_more=False,
         last_id=models[-1].id if models else None,
     )
+
+
+# =============================================================================
+# Image Generation (Nano Banana 2 / Gemini 3.1 Flash Image)
+# =============================================================================
+@router.post("/v1/images/generations", response_model=ImageGenResponse)
+async def generate_images(
+    request_data: ImageGenRequest,
+    service: ClaudeProxyService = Depends(get_proxy_service),
+    _auth=Depends(require_api_key),
+):
+    """Generate images via Nano Banana 2 (Gemini 3.1 Flash Image)."""
+    return await service.generate_image(request_data)
+
+
+@router.api_route("/v1/images/generations", methods=["HEAD", "OPTIONS"])
+async def probe_image_generations(_auth=Depends(require_api_key)):
+    """Respond to compatibility probes for the image generations endpoint."""
+    return _probe_response("POST, HEAD, OPTIONS")
 
 
 # =============================================================================
