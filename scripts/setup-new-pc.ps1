@@ -93,7 +93,7 @@ $ccPkg = "$env:APPDATA\npm\node_modules\@anthropic-ai\claude-code"
 npm install -g @anthropic-ai/claude-code@2.1.153
 
 Write-Host "  Locking version via icacls..." -ForegroundColor Gray
-icacls $ccPkg /deny "$env:USERNAME":W /T 2>$null
+$sid = ([System.Security.Principal.WindowsIdentity]::GetCurrent()).User.Value; icacls $ccPkg /deny "*$sid":W /T 2>$null
 Write-Host "  Claude Code locked at 2.1.153" -ForegroundColor $green
 
 # ── Configure Claude Code ──
